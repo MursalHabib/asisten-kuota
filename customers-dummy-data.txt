@@ -1,0 +1,29 @@
+[
+  {
+    "msisdn": "628111****01",
+    "segment": "YOUTH",
+    "subscriber_type": "PREPAID",
+    "consent_personalization": true,
+    "consent_transaction": true,
+    "timestamp": "2026-11-07T08:00:00+07:00",
+    "location": "BDG-001"
+  },
+  {
+    "msisdn": "628111000001",
+    "total_quota_mb": 10240,
+    "remaining_quota_mb": 128,
+    "remaining_percent": 1.25,
+    "fup_status": "NOT_REACHED",
+    "fup_threshold_mb": 10240,
+    "valid_until": "2026-11-11T23:59:59+07:00",
+    "diagnostic_code": "LOW_QUOTA"
+  },
+  {
+    "conditions":"628111000001	Quota hampir habis, network normal	Recommend package | 628111000002	FUP reached, network normal	Explain FUP, recommend package | 628111000003	Quota cukup, network degraded	Offer ticket, not package (v) | 628111000004	Quota habis, pulsa tidak cukup, loan eligible	Offer Paket Darurat | 628111000005	Consent belum ada	Ask consent before diagnosis (v)"
+  }
+  
+]
+
+
+
+
