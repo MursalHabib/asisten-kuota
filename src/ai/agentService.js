@@ -6,10 +6,13 @@ const {
   normalizeMsisdn,
   maskMsisdn,
 } = require("./toolExecutor.js");
-
+const crypto = require("crypto");
+const sessionStore = require("./sessionStore.js");
+const { fmtIdr, logUsage } = require("./usageLogger");
 const MAX_AGENT_STEPS = Number(process.env.MAX_AGENT_STEPS ?? 6);
 const DEBUG = process.env.AGENT_DEBUG === "true";
-
+const QWEN_MODEL =
+  process.env.OPENAI_MODEL ?? process.env.OLLAMA_MODEL ?? "qwen3.5:latest";
 // Tool yang MSISDN-nya selalu diambil dari sesi (bukan dari LLM)
 const SESSION_BOUND_TOOLS = new Set([
   "get_customer_profile",
@@ -95,6 +98,155 @@ module.exports = {
     }
     log("start", { msisdn: maskMsisdn(sessionMsisdn), userMessage });
 
+    // ================= ROUTER DETERMINISTIK (sebelum LLM) =================
+    const text = String(userMessage ?? "")
+      .trim()
+      .toUpperCase();
+    const s = sessionStore.get(sessionMsisdn);
+    const rupiah = (n) => `Rp${Number(n ?? 0).toLocaleString("id-ID")}`;
+
+    const done = (reply, trace, extra = {}) => ({
+      reply,
+      steps: 0,
+      toolTrace: [trace],
+      history: [
+        ...history,
+        { role: "user", content: userMessage },
+        { role: "assistant", content: reply },
+      ],
+      ...extra,
+    });
+    const clearOffer = () =>
+      sessionStore.set(sessionMsisdn, {
+        pendingAction: null,
+        selectedOffer: null,
+        idempotencyKey: null,
+        loanOffer: null,
+      });
+
+    // 1) BATAL saat sedang memilih/konfirmasi paket atau Paket Darurat
+    if (
+      ["SELECT_OFFER", "CONFIRM_PURCHASE", "CONFIRM_LOAN"].includes(
+        s.pendingAction,
+      ) &&
+      text === "BATAL"
+    ) {
+      clearOffer();
+      return done("Baik, dibatalkan. Ada lagi yang bisa saya bantu?", {
+        step: "cancel",
+      });
+    }
+
+    // 2) Pilih paket → buat Idempotency-Key sekali per permintaan
+    if (s.pendingAction === "SELECT_OFFER" && /^\d$/.test(text)) {
+      const offer = s.lastOffers?.[Number(text) - 1];
+      if (!offer) {
+        return done(
+          `Pilihan tidak tersedia. Balas angka 1–${s.lastOffers?.length ?? 0}, atau BATAL.`,
+          { step: "select_offer", success: false, errorCode: "INVALID_CHOICE" },
+        );
+      }
+      sessionStore.set(sessionMsisdn, {
+        selectedOffer: offer,
+        idempotencyKey: crypto.randomUUID(),
+        pendingAction: "CONFIRM_PURCHASE",
+      });
+      return done(
+        `Anda akan membeli ${offer.name} seharga ${rupiah(offer.price)} dari pulsa.\nBalas KONFIRMASI untuk membeli, atau BATAL.`,
+        { step: "select_offer", success: true, offerId: offer.offerId },
+      );
+    }
+
+    // 3) KONFIRMASI beli (KONFIRMASI ulang setelah sukses → replay idempoten)
+    if (
+      ["CONFIRM_PURCHASE", "PURCHASED"].includes(s.pendingAction) &&
+      text === "KONFIRMASI"
+    ) {
+      const offer = s.selectedOffer;
+      const r = await executeTool(
+        "purchase_offer",
+        {
+          msisdn: sessionMsisdn,
+          offerId: offer.offerId,
+          idempotencyKey: s.idempotencyKey,
+        },
+        { internal: true },
+      );
+      const trace = {
+        tool: "purchase_offer",
+        offerId: offer.offerId,
+        success: r.success,
+        replayed: r.replayed,
+        errorCode: r.errorCode,
+      };
+
+      if (r.success) {
+        sessionStore.set(sessionMsisdn, { pendingAction: "PURCHASED" });
+        return done(
+          r.replayed
+            ? "Anda baru saja membeli paket ini."
+            : "Terima kasih, permintaan akan diproses.",
+          trace,
+        );
+      }
+      if (r.errorCode === "INSUFFICIENT_BALANCE") {
+        clearOffer();
+        return done(
+          "Maaf, pulsa Anda tidak cukup untuk membeli paket ini. Silakan isi pulsa terlebih dahulu.",
+          trace,
+        );
+      }
+      if (r.uncertain) {
+        return done(
+          "Pembelian sedang kami pastikan. Balas KONFIRMASI beberapa saat lagi untuk cek status. Pulsa tidak akan terpotong dua kali.",
+          trace,
+        );
+      }
+      return done(
+        "Maaf, pembelian belum berhasil. Saya hubungkan Anda dengan agen kami.",
+        trace,
+        { handoffRecommended: true },
+      );
+    }
+
+    // 4) KONFIRMASI Paket Darurat
+    if (s.pendingAction === "CONFIRM_LOAN" && text === "KONFIRMASI") {
+      const loan = s.loanOffer;
+      clearOffer();
+      // Kontrak mock hanya punya /loan/eligibility → aktivasi disimulasikan
+      return done(
+        `Terima kasih, ${loan?.offer?.name ?? "Paket Darurat"} akan diproses. Biaya layanan ${rupiah(loan?.fee)} dibayar saat isi pulsa berikutnya.`,
+        { step: "activate_loan", success: true, offerId: loan?.offer?.offerId },
+      );
+    }
+
+    // 5) Tanya tiket (DIPINDAH dari dalam loop tool)
+    if (TICKET_INTENT.test(userMessage ?? "")) {
+      const r = await executeTool("get_ticket_info", { msisdn: sessionMsisdn });
+      const t = r.data;
+      const eta = t?.slaDueAt
+        ? `Estimasi penanganan: ${t.slaDueAt}.`
+        : t?.etaHours
+          ? `Estimasi pemulihan sekitar ${t.etaHours} jam.`
+          : "";
+      const reply = !r.success
+        ? "Maaf, pengecekan tiket belum berhasil. Saya hubungkan Anda dengan agen kami."
+        : r.found
+          ? `🎫 Tiket gangguan Anda: ${t.ticketId}\nStatus: ${t.status}\n${eta}`.trim()
+          : "Saat ini belum ada tiket gangguan atas nomor Anda. Jika internet bermasalah, saya bisa bantu cek terlebih dahulu.";
+      return done(
+        reply,
+        {
+          tool: "get_ticket_info",
+          success: r.success,
+          found: r.found,
+          source: r.source,
+        },
+        { handoffRecommended: !r.success },
+      );
+    }
+    // ================= END ROUTER =================
+
     const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       ...history,
@@ -103,11 +255,20 @@ module.exports = {
 
     const toolCache = new Map(); // cegah call berulang dengan args sama
     const toolTrace = [];
-
+    const usageTrace = [];
+    const conversationId = maskMsisdn(sessionMsisdn);
+    const usageOut = () => ({
+      usage: {
+        calls: usageTrace.map(({ cost_idr, cost_usd, ...u }) => ({ ...u })),
+        total_tokens: usageTrace.reduce((a, u) => a + u.total_tokens, 0),
+        total_cost: fmtIdr(usageTrace.reduce((a, u) => a + u.cost_idr, 0)),
+      },
+    });
     for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
       const isLastStep = step === MAX_AGENT_STEPS - 1;
 
       let response;
+      const llmStart = Date.now();
       try {
         response = await qwenClient({
           messages,
@@ -122,12 +283,24 @@ module.exports = {
             "Maaf, layanan asisten sedang tidak tersedia. Silakan coba lagi.",
           steps: step + 1,
           error: "LLM_ERROR",
+          ...usageOut(),
         };
       }
+      const latencyMs = Date.now() - llmStart;
 
       const raw = response?.message ?? {};
       let toolCalls = Array.isArray(raw.tool_calls) ? raw.tool_calls : [];
       if (toolCalls.length === 0) toolCalls = extractTextToolCalls(raw.content);
+
+      const usageRow = logUsage({
+        conversationId,
+        step: step + 1,
+        model: QWEN_MODEL,
+        usage: response?.usage, // <- bukan usageInfo
+        latencyMs,
+        tools: toolCalls.map((tc) => tc?.function?.name).filter(Boolean),
+      });
+      if (usageRow) usageTrace.push(usageRow);
 
       log(`step ${step + 1} tool_calls:`, JSON.stringify(toolCalls));
 
@@ -139,6 +312,7 @@ module.exports = {
             "Maaf, saya belum dapat memberikan jawaban.",
           steps: step + 1,
           toolTrace,
+          ...usageOut(),
         };
       }
 
@@ -183,47 +357,6 @@ module.exports = {
         } else {
           const started = Date.now();
           toolResult = await executeTool(name, args);
-          if (
-            name === "start_diagnose" &&
-            toolResult.success &&
-            toolResult.renderedMessage
-          ) {
-            messages.push({
-              role: "assistant",
-              content: toolResult.renderedMessage,
-            }); // untuk history
-            return {
-              reply: toolResult.renderedMessage,
-              steps: step + 1,
-              toolTrace,
-              diagnosis: toolResult.data ?? null,
-              messages, // opsional: simpan sebagai history giliran berikutnya
-            };
-          }
-
-          if (TICKET_INTENT.test(userMessage ?? "")) {
-            const r = await executeTool("get_ticket_info", {
-              msisdn: sessionMsisdn,
-            });
-
-            const t = r.data;
-            const reply = r.found
-              ? `🎫 Tiket gangguan Anda: ${t.ticketId}\nStatus: ${t.status}\nEstimasi pemulihan sekitar ${t.slaDueAt} jam sejak laporan dibuat.`
-              : "Saat ini belum ada tiket gangguan atas nomor Anda. Jika internet bermasalah, saya bisa bantu cek terlebih dahulu.";
-            const nextHistory = [
-              ...history,
-              { role: "user", content: userMessage },
-              { role: "assistant", content: reply },
-            ];
-            return {
-              reply,
-              steps: 0,
-              toolTrace: [
-                { tool: "get_ticket_info", success: r.success, found: r.found },
-              ],
-              history: nextHistory,
-            };
-          }
 
           toolCache.set(cacheKey, toolResult);
           toolTrace.push({
@@ -252,6 +385,7 @@ module.exports = {
       steps: MAX_AGENT_STEPS,
       handoffRecommended: true,
       toolTrace,
+      ...usageOut(),
     };
   },
 };

@@ -3,10 +3,12 @@ const {
   startDiagnose,
   getQuota,
 } = require("../controllers/diagnoseController");
-const { findOpenTicket } = require("../services/ticketService");
 const sessionStore = require("./sessionStore");
 
+const { purchaseOffer } = require("../services/purchaseClient");
+
 const API_GET_TICKET = "http://localhost:3001/api/v1/ticket/";
+const API_GET_QUOTA = "http://localhost:3001/api/v1/subcriber/";
 
 const TOOL_TIMEOUT_MS = Number(process.env.TOOL_TIMEOUT_MS ?? 15000);
 const MSISDN_REGEX = /^62\d{8,13}$/;
@@ -21,6 +23,7 @@ const ALLOWED_TOOLS = new Set([
   "get_customer_quota",
   "start_diagnose",
   "get_ticket_info",
+  "purchase_offer",
 ]);
 const VALID_CONSENT = new Set(["KONFIRMASI", "BATAL"]);
 function normalizeMsisdn(value) {
@@ -80,14 +83,19 @@ const handlers = {
     const msisdn = normalizeMsisdn(args.msisdn);
     if (!MSISDN_REGEX.test(msisdn)) return invalidMsisdn;
 
-    const quota = await withTimeout(getQuota(msisdn), TOOL_TIMEOUT_MS);
+    const quota = await withTimeout(
+      fetch(API_GET_QUOTA + msisdn + "/quota"),
+      TOOL_TIMEOUT_MS,
+    );
+
     if (!quota)
       return {
         success: false,
         errorCode: "NOT_FOUND",
         message: "Data kuota tidak ditemukan",
       };
-    return { success: true, data: quota };
+    const data = await quota.json();
+    return { success: true, data };
   },
 
   async get_ticket_info(args) {
@@ -103,7 +111,6 @@ const handlers = {
           fetch(API_GET_TICKET + msisdn),
           TOOL_TIMEOUT_MS,
         );
-        console.log(data);
         if (data?.status == 404)
           return { success: true, found: false, source: "db" };
         if (data.ok) {
@@ -114,7 +121,6 @@ const handlers = {
             slaDueAt: row.sla_due_at,
             createdAt: row.created_at,
           };
-          console.log(ticket);
           sessionStore.set(msisdn, { lastTicket: ticket });
           return { success: true, found: true, source: "db", data: ticket };
         }
@@ -165,6 +171,19 @@ const handlers = {
     }
 
     const result = await withTimeout(startDiagnose(msisdn), TOOL_TIMEOUT_MS);
+    const rec = result.recommendation;
+    if (rec?.type === "OFFERS") {
+      sessionStore.set(msisdn, {
+        lastOffers: rec.offers,
+        offersAt: Date.now(),
+        pendingAction: "SELECT_OFFER",
+      });
+    } else if (rec?.type === "LOAN") {
+      sessionStore.set(msisdn, {
+        loanOffer: rec.loan,
+        pendingAction: "CONFIRM_LOAN",
+      });
+    }
     if (result.ticket?.success) {
       sessionStore.set(msisdn, {
         lastTicket: {
@@ -192,6 +211,19 @@ const handlers = {
       }),
       renderedMessage: result.renderedMessage,
     };
+  },
+  async purchase_offer(args) {
+    const msisdn = normalizeMsisdn(args.msisdn);
+    if (!MSISDN_REGEX.test(msisdn)) return invalidMsisdn;
+    if (!args.offerId || !args.idempotencyKey) {
+      return { success: false, errorCode: "INVALID_PURCHASE_REQUEST" };
+    }
+    return purchaseOffer({
+      msisdn,
+      offerId: args.offerId,
+      idempotencyKey: args.idempotencyKey,
+      traceId: args.traceId,
+    });
   },
 };
 
