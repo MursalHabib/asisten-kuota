@@ -11,4 +11,9 @@ const dbGet = (sql, params) =>
 module.exports = {
   getNetworkByMsisdn: (msisdn) =>
     dbGet("SELECT * FROM network_cells WHERE msisdn = ?", [msisdn]),
+  getNetworkByCell: (cell) =>
+    dbGet(
+      "SELECT * FROM network_cells WHERE location = ? ORDER BY last_checked DESC LIMIT 1",
+      [cell],
+    ),
 };

@@ -114,7 +114,8 @@ Route API yang tersedia sesuai requirements:
 | ------ | ------------------------------------ | --------------------------------- |
 | `GET`  | `/api/v1/subscriber/:msisdn/profile` | Melihat profil pelanggan          |
 | `GET`  | `/api/v1/subscriber/:msisdn/quota`   | Melihat kuota pelanggan           |
-| `GET`  | `/api/v1/network/status`             | Melihat status jaringan           |
+| `GET`  | `/api/v1/network/status?cell=<lokasi>` | Melihat status jaringan berdasarkan cell/lokasi |
+| `GET`  | `/api/v1/network/status?msisdn=<nomor>` | Melihat status jaringan berdasarkan nomor pelanggan |
 | `POST` | `/api/v1/ticket`                     | Membuat tiket gangguan            |
 | `GET`  | `/api/v1/offers`                     | Melihat penawaran paket           |
 | `POST` | `/api/v1/loan/eligibility`           | Memeriksa kelayakan Paket Darurat |
@@ -128,6 +129,10 @@ Route API lain yang tersedia untuk mendukung pembuatan project ini:
 | `POST` | `/api/v1/quota/:msisdn` | Menghapus data kuota pelanggan |
 | `POST` | `/api/v1/network/status` | Menambahkan status jaringan |
 | `GET` | `/api/v1/ticket/:msisdn` | Melihat tiket gangguan pelanggan |
+
+Parameter `cell` pada endpoint status jaringan dicocokkan dengan nilai kolom
+`location` pada data network cell. Gunakan salah satu parameter, `cell` atau
+`msisdn`, dalam satu request.
 
 ## Kode AI dan API Node.js
 

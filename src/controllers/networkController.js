@@ -1,12 +1,36 @@
 const { maskingHandler } = require("../middleware/maskingHandler");
 const db = require("../../database");
-const { getNetworkByMsisdn } = require("../services/networkService");
+const {
+  getNetworkByMsisdn,
+  getNetworkByCell,
+} = require("../services/networkService");
 
 module.exports = {
   networkProfile: async (req, res, next) => {
-    const { msisdn } = req.query;
+    const { msisdn, cell } = req.query;
+    if (
+      (msisdn && typeof msisdn !== "string") ||
+      (cell && typeof cell !== "string")
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Provide one cell or msisdn query parameter" });
+    }
+    if (msisdn && cell) {
+      return res
+        .status(400)
+        .json({ error: "Provide either cell or msisdn, not both" });
+    }
+    if (!msisdn && !cell) {
+      return res
+        .status(400)
+        .json({ error: "Query parameter cell or msisdn is required" });
+    }
+
     try {
-      const row = await getNetworkByMsisdn(req.query.msisdn);
+      const row = cell
+        ? await getNetworkByCell(cell)
+        : await getNetworkByMsisdn(msisdn);
       if (!row)
         return res.status(404).json({ error: "Network status not found" });
 
