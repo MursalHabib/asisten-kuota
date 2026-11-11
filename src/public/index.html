@@ -1,490 +1,524 @@
 <!doctype html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Asisten Kuota - Prototype</title>
-    <style>
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        font-family: system-ui, sans-serif;
-        background: #f2f2f2;
-        display: flex;
-        gap: 16px;
-        padding: 16px;
-        height: 100vh;
-      }
-      .chat {
-        flex: 1;
-        max-width: 480px;
-        display: flex;
-        flex-direction: column;
-        background: #fff;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px #0002;
-      }
-      header {
-        background: #d9541e;
-        color: #fff;
-        padding: 12px 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-      }
-      header select {
-        padding: 4px;
-        border-radius: 6px;
-        border: 0;
-        max-width: 260px;
-      }
-      #messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .msg {
-        max-width: 85%;
-        padding: 8px 12px;
-        border-radius: 12px;
-        white-space: pre-wrap;
-        line-height: 1.4;
-        font-size: 14px;
-      }
-      .user {
-        align-self: flex-end;
-        background: #d9541e;
-        color: #fff;
-      }
-      .bot {
-        align-self: flex-start;
-        background: #eee;
-      }
-      .typing {
-        opacity: 0.6;
-        font-style: italic;
-      }
-      .success {
-        background: #e6f6ea;
-        border-left: 4px solid #1a9e45;
-      }
-      .warn {
-        background: #fff4e0;
-        border-left: 4px solid #f0a000;
-      }
 
-      /* Kartu paket */
-      .cards {
-        align-self: flex-start;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        width: 85%;
-      }
-      .card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 8px 10px;
-        cursor: pointer;
-        background: #fff;
-        font-size: 13px;
-      }
-      .card:hover {
-        border-color: #d9541e;
-      }
-      .card b {
-        display: block;
-        font-size: 14px;
-      }
-      .card .price {
-        color: #d9541e;
-        font-weight: 600;
-      }
-      .card.loan {
-        border-color: #f0a000;
-        background: #fffaf0;
-        cursor: default;
-      }
-      .cards.disabled .card {
-        opacity: 0.5;
-        pointer-events: none;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asisten Kuota - Prototype</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-      .quick {
-        display: flex;
-        gap: 6px;
-        padding: 8px 12px;
-        flex-wrap: wrap;
-        border-top: 1px solid #f0f0f0;
-      }
-      .quick button {
-        border: 1px solid #d9541e;
-        color: #d9541e;
-        background: #fff;
-        border-radius: 16px;
-        padding: 4px 10px;
-        cursor: pointer;
-        font-size: 13px;
-      }
-      .quick button.primary {
-        background: #d9541e;
-        color: #fff;
-      }
-      .quick button.handoff {
-        background: #333;
-        color: #fff;
-        border-color: #333;
-      }
-      .quick button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      form {
-        display: flex;
-        border-top: 1px solid #ddd;
-      }
-      input {
-        flex: 1;
-        border: 0;
-        padding: 12px;
-        font-size: 14px;
-        outline: none;
-      }
-      form button {
-        border: 0;
-        background: #d9541e;
-        color: #fff;
-        padding: 0 18px;
-        cursor: pointer;
-      }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      height: 100vh;
+    }
 
-      .trace {
-        flex: 1;
-        background: #1e1e1e;
-        color: #9cdcfe;
-        border-radius: 12px;
-        padding: 12px;
-        overflow-y: auto;
-        font: 12px/1.5 monospace;
-      }
-      .trace h3 {
-        color: #fff;
-        margin: 0 0 8px;
-        font-family: system-ui;
-        display: flex;
-        justify-content: space-between;
-      }
-      .trace h3 label {
-        font-size: 12px;
-        font-weight: normal;
-        color: #aaa;
-      }
-      .trace .entry {
-        border-bottom: 1px solid #333;
-        padding-bottom: 8px;
-        margin-bottom: 8px;
-      }
-      .trace pre {
-        margin: 4px 0 0;
-        white-space: pre-wrap;
-      }
-      .badge {
-        display: inline-block;
-        padding: 0 6px;
-        border-radius: 4px;
-        margin-right: 4px;
-        font-size: 11px;
-        color: #000;
-      }
-      .b-ok {
-        background: #4ec9b0;
-      }
-      .b-err {
-        background: #f48771;
-      }
-      .b-replay {
-        background: #dcdcaa;
-      }
-      .b-info {
-        background: #9cdcfe;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="chat">
-      <header>
-        <strong>Asisten Kuota</strong>
-        <!-- Data dummy: samakan dengan seed DB -->
-        <select id="msisdn">
-          <option value="628111111101">
-            P1 · kuota tipis · pulsa 50rb → paket
-          </option>
-          <option value="628111111102">P2 · FUP · pulsa 10rb → paket</option>
-          <option value="628111111103">P3 · jaringan degraded → tiket</option>
-          <option value="628111111104">
-            P4 · kuota habis · pulsa 0 → darurat
-          </option>
-          <option value="628111111105">
-            P5 · kuota tipis + degraded → tiket
-          </option>
-        </select>
-      </header>
+    .chat {
+      flex: 1;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px #0002;
+    }
 
-      <div id="messages"></div>
+    header {
+      background: #d9541e;
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
 
-      <div class="quick" id="quick"></div>
+    header select {
+      padding: 4px;
+      border-radius: 6px;
+      border: 0;
+      max-width: 260px;
+    }
 
-      <form id="form">
-        <input id="input" placeholder="Ketik pesan..." autocomplete="off" />
-        <button type="submit" id="sendBtn">Kirim</button>
-      </form>
-    </div>
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-    <div class="trace" id="trace">
-      <h3>
-        Agent trace
-        <label
-          ><input type="checkbox" id="lockToggle" checked /> kunci input saat
-          proses</label
-        >
-      </h3>
-    </div>
+    .msg {
+      max-width: 85%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      font-size: 14px;
+    }
 
-    <script>
-      const API_URL = "/api/agent/chat"; // sesuaikan dengan route Express
-      const $ = (id) => document.getElementById(id);
-      const DEFAULT_QUICK = [
-        ["Internet saya lambat", "Internet lambat"],
-        ["Ada paket apa saja?", "Lihat paket"],
-        ["Nomor tiket saya berapa?", "Cek tiket"],
-      ];
-      let history = [];
-      let busy = false;
+    .user {
+      align-self: flex-end;
+      background: #d9541e;
+      color: #fff;
+    }
 
-      // ---------- Render pesan ----------
-      function addMsg(text, cls) {
-        const el = document.createElement("div");
-        el.className = `msg ${cls}`;
-        el.textContent = text;
-        $("messages").appendChild(el);
-        scrollDown();
-        return el;
-      }
-      const scrollDown = () => {
-        $("messages").scrollTop = $("messages").scrollHeight;
+    .bot {
+      align-self: flex-start;
+      background: #eee;
+    }
+
+    .typing {
+      opacity: 0.6;
+      font-style: italic;
+    }
+
+    .success {
+      background: #e6f6ea;
+      border-left: 4px solid #1a9e45;
+    }
+
+    .warn {
+      background: #fff4e0;
+      border-left: 4px solid #f0a000;
+    }
+
+    /* Kartu paket */
+    .cards {
+      align-self: flex-start;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 85%;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .card:hover {
+      border-color: #d9541e;
+    }
+
+    .card b {
+      display: block;
+      font-size: 14px;
+    }
+
+    .card .price {
+      color: #d9541e;
+      font-weight: 600;
+    }
+
+    .card.loan {
+      border-color: #f0a000;
+      background: #fffaf0;
+      cursor: default;
+    }
+
+    .cards.disabled .card {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .quick {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      flex-wrap: wrap;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .quick button {
+      border: 1px solid #d9541e;
+      color: #d9541e;
+      background: #fff;
+      border-radius: 16px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .quick button.primary {
+      background: #d9541e;
+      color: #fff;
+    }
+
+    .quick button.handoff {
+      background: #333;
+      color: #fff;
+      border-color: #333;
+    }
+
+    .quick button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    form {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    input {
+      flex: 1;
+      border: 0;
+      padding: 12px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    form button {
+      border: 0;
+      background: #d9541e;
+      color: #fff;
+      padding: 0 18px;
+      cursor: pointer;
+    }
+
+    .trace {
+      flex: 1;
+      background: #1e1e1e;
+      color: #9cdcfe;
+      border-radius: 12px;
+      padding: 12px;
+      overflow-y: auto;
+      font: 12px/1.5 monospace;
+    }
+
+    .trace h3 {
+      color: #fff;
+      margin: 0 0 8px;
+      font-family: system-ui;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .trace h3 label {
+      font-size: 12px;
+      font-weight: normal;
+      color: #aaa;
+    }
+
+    .trace .entry {
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .trace pre {
+      margin: 4px 0 0;
+      white-space: pre-wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+      font-size: 11px;
+      color: #000;
+    }
+
+    .b-ok {
+      background: #4ec9b0;
+    }
+
+    .b-err {
+      background: #f48771;
+    }
+
+    .b-replay {
+      background: #dcdcaa;
+    }
+
+    .b-info {
+      background: #9cdcfe;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="chat">
+    <header>
+      <strong>Asisten Kuota</strong>
+      <!-- Data dummy: samakan dengan seed DB -->
+      <select id="msisdn">
+        <option value="628111111101">
+          P1 · kuota tipis · pulsa 50rb → paket
+        </option>
+        <option value="628111111102">P2 · FUP · pulsa 10rb → paket</option>
+        <option value="628111111103">P3 · jaringan degraded → tiket</option>
+        <option value="628111111104">
+          P4 · kuota habis · pulsa 0 → darurat
+        </option>
+        <option value="628111111105">
+          P5 · angry customer → agent handoff
+        </option>
+      </select>
+    </header>
+
+    <div id="messages"></div>
+
+    <div class="quick" id="quick"></div>
+
+    <form id="form">
+      <input id="input" placeholder="Ketik pesan..." autocomplete="off" />
+      <button type="submit" id="sendBtn">Kirim</button>
+    </form>
+  </div>
+
+  <div class="trace" id="trace">
+    <h3>
+      Agent trace
+      <label><input type="checkbox" id="lockToggle" checked /> kunci input saat
+        proses</label>
+    </h3>
+  </div>
+
+  <script>
+    const API_URL = "/api/agent/chat"; // sesuaikan dengan route Express
+    const $ = (id) => document.getElementById(id);
+    const DEFAULT_QUICK = [
+      ["Internet saya lambat", "Internet lambat"],
+      ["Ada paket apa saja?", "Lihat paket"],
+      ["Nomor tiket saya berapa?", "Cek tiket"],
+    ];
+    let history = [];
+    let busy = false;
+
+    // ---------- Render pesan ----------
+    function addMsg(text, cls) {
+      const el = document.createElement("div");
+      el.className = `msg ${cls}`;
+      el.textContent = text;
+      $("messages").appendChild(el);
+      scrollDown();
+      return el;
+    }
+    const scrollDown = () => {
+      $("messages").scrollTop = $("messages").scrollHeight;
+    };
+
+    // Pisahkan teks bot & daftar paket ("1. Nama • 2 GB • 1 hari • Rp10.000")
+    const OFFER_LINE =
+      /^(\d+)\.\s+(.+?)\s+•\s+(.+?)\s+•\s+(.+?)\s+•\s+(Rp[\d.]+)\s*$/;
+
+    function renderBot(reply) {
+      const lines = reply.split("\n");
+      const offers = [];
+      const rest = [];
+      lines.forEach((l) => {
+        const m = l.trim().match(OFFER_LINE);
+        if (m)
+          offers.push({
+            no: m[1],
+            name: m[2],
+            quota: m[3],
+            validity: m[4],
+            price: m[5],
+          });
+        else rest.push(l);
+      });
+
+      let cls = "bot";
+      if (/permintaan akan diproses|berhasil diaktifkan/i.test(reply))
+        cls += " success";
+      else if (
+        /baru saja membeli|tidak cukup|belum berhasil|sedang kami pastikan/i.test(
+          reply,
+        )
+      )
+        cls += " warn";
+
+      if (!offers.length) return addMsg(reply, cls);
+
+      // Teks sebelum daftar paket
+      const idx = rest.findIndex((l) => /Pulsa Anda|Balas angka/.test(l));
+      const before = rest
+        .slice(0, idx < 0 ? rest.length : idx)
+        .join("\n")
+        .trim();
+      const after = idx < 0 ? "" : rest.slice(idx).join("\n").trim();
+      if (before) addMsg(before, cls);
+
+      const wrap = document.createElement("div");
+      wrap.className = "cards";
+      offers.forEach((o) => {
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `<b>${o.no}. ${o.name}</b>${o.quota} · ${o.validity} · <span class="price">${o.price}</span>`;
+        c.onclick = () => {
+          wrap.classList.add("disabled");
+          send(o.no);
+        };
+        wrap.appendChild(c);
+      });
+      $("messages").appendChild(wrap);
+      if (after) addMsg(after, "bot");
+      scrollDown();
+    }
+
+    // ---------- Quick replies berdasarkan state percakapan ----------
+    function setQuickReplies(reply = "", handoff = false) {
+      const q = $("quick");
+      q.innerHTML = "";
+      const add = (send, label, cls = "") => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.dataset.text = send;
+        b.className = cls;
+        q.appendChild(b);
       };
 
-      // Pisahkan teks bot & daftar paket ("1. Nama • 2 GB • 1 hari • Rp10.000")
-      const OFFER_LINE =
-        /^(\d+)\.\s+(.+?)\s+•\s+(.+?)\s+•\s+(.+?)\s+•\s+(Rp[\d.]+)\s*$/;
-
-      function renderBot(reply) {
-        const lines = reply.split("\n");
-        const offers = [];
-        const rest = [];
-        lines.forEach((l) => {
-          const m = l.trim().match(OFFER_LINE);
-          if (m)
-            offers.push({
-              no: m[1],
-              name: m[2],
-              quota: m[3],
-              validity: m[4],
-              price: m[5],
-            });
-          else rest.push(l);
-        });
-
-        let cls = "bot";
-        if (/permintaan akan diproses|berhasil diaktifkan/i.test(reply))
-          cls += " success";
-        else if (
-          /baru saja membeli|tidak cukup|belum berhasil|sedang kami pastikan/i.test(
-            reply,
-          )
-        )
-          cls += " warn";
-
-        if (!offers.length) return addMsg(reply, cls);
-
-        // Teks sebelum daftar paket
-        const idx = rest.findIndex((l) => /Pulsa Anda|Balas angka/.test(l));
-        const before = rest
-          .slice(0, idx < 0 ? rest.length : idx)
-          .join("\n")
-          .trim();
-        const after = idx < 0 ? "" : rest.slice(idx).join("\n").trim();
-        if (before) addMsg(before, cls);
-
-        const wrap = document.createElement("div");
-        wrap.className = "cards";
-        offers.forEach((o) => {
-          const c = document.createElement("div");
-          c.className = "card";
-          c.innerHTML = `<b>${o.no}. ${o.name}</b>${o.quota} · ${o.validity} · <span class="price">${o.price}</span>`;
-          c.onclick = () => {
-            wrap.classList.add("disabled");
-            send(o.no);
-          };
-          wrap.appendChild(c);
-        });
-        $("messages").appendChild(wrap);
-        if (after) addMsg(after, "bot");
-        scrollDown();
+      const range = reply.match(/Balas angka 1[–-](\d+)/);
+      if (range) {
+        for (let i = 1; i <= Number(range[1]); i += 1)
+          add(String(i), `Pilih ${i}`);
+        add("BATAL", "BATAL");
+      } else if (/KONFIRMASI/.test(reply)) {
+        const label = /Paket Darurat/i.test(reply)
+          ? "Aktifkan Paket Darurat"
+          : /membeli/i.test(reply)
+            ? "KONFIRMASI BELI"
+            : "KONFIRMASI";
+        add("KONFIRMASI", label, "primary");
+        add("BATAL", "BATAL");
+      } else {
+        DEFAULT_QUICK.forEach(([s, l]) => add(s, l));
       }
+      if (handoff) add("__HANDOFF__", "Hubungi agen", "handoff");
+      setBusy(busy);
+    }
 
-      // ---------- Quick replies berdasarkan state percakapan ----------
-      function setQuickReplies(reply = "", handoff = false) {
-        const q = $("quick");
-        q.innerHTML = "";
-        const add = (send, label, cls = "") => {
-          const b = document.createElement("button");
-          b.textContent = label;
-          b.dataset.text = send;
-          b.className = cls;
-          q.appendChild(b);
-        };
+    // ---------- Trace ----------
+    function addTrace(data, text) {
+      const entry = document.createElement("div");
+      entry.className = "entry";
+      const badges = (data.toolTrace ?? [])
+        .map((t) => {
+          const name = t.tool ?? t.step ?? "step";
+          if (t.replayed)
+            return `<span class="badge b-replay">${name} · replayed</span>`;
+          if (t.success === false || t.errorCode)
+            return `<span class="badge b-err">${name} · ${t.errorCode ?? "error"}</span>`;
+          if (t.success === true)
+            return `<span class="badge b-ok">${name}</span>`;
+          return `<span class="badge b-info">${name}</span>`;
+        })
+        .join("");
+      entry.innerHTML =
+        `<div>${new Date().toLocaleTimeString()} · "${escapeHtml(text)}" · steps=${data.steps ?? "-"}` +
+        `${data.handoffRecommended ? ' · <span class="badge b-err">handoff</span>' : ""}</div><div>${badges}</div>`;
+      const pre = document.createElement("pre");
+      pre.textContent = JSON.stringify(
+        { trace: data.toolTrace, usage: data.usage } ?? [],
+        null,
+        2,
+      );
+      entry.appendChild(pre);
+      $("trace").appendChild(entry);
+      $("trace").scrollTop = $("trace").scrollHeight;
+    }
+    const escapeHtml = (s) =>
+      s.replace(
+        /[&<>"]/g,
+        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+      );
 
-        const range = reply.match(/Balas angka 1[–-](\d+)/);
-        if (range) {
-          for (let i = 1; i <= Number(range[1]); i += 1)
-            add(String(i), `Pilih ${i}`);
-          add("BATAL", "BATAL");
-        } else if (/KONFIRMASI/.test(reply)) {
-          const label = /Paket Darurat/i.test(reply)
-            ? "Aktifkan Paket Darurat"
-            : /membeli/i.test(reply)
-              ? "KONFIRMASI BELI"
-              : "KONFIRMASI";
-          add("KONFIRMASI", label, "primary");
-          add("BATAL", "BATAL");
-        } else {
-          DEFAULT_QUICK.forEach(([s, l]) => add(s, l));
-        }
-        if (handoff) add("__HANDOFF__", "Hubungi agen", "handoff");
-        setBusy(busy);
-      }
-
-      // ---------- Trace ----------
-      function addTrace(data, text) {
-        const entry = document.createElement("div");
-        entry.className = "entry";
-        const badges = (data.toolTrace ?? [])
-          .map((t) => {
-            const name = t.tool ?? t.step ?? "step";
-            if (t.replayed)
-              return `<span class="badge b-replay">${name} · replayed</span>`;
-            if (t.success === false || t.errorCode)
-              return `<span class="badge b-err">${name} · ${t.errorCode ?? "error"}</span>`;
-            if (t.success === true)
-              return `<span class="badge b-ok">${name}</span>`;
-            return `<span class="badge b-info">${name}</span>`;
-          })
-          .join("");
-        entry.innerHTML =
-          `<div>${new Date().toLocaleTimeString()} · "${escapeHtml(text)}" · steps=${data.steps ?? "-"}` +
-          `${data.handoffRecommended ? ' · <span class="badge b-err">handoff</span>' : ""}</div><div>${badges}</div>`;
-        const pre = document.createElement("pre");
-        pre.textContent = JSON.stringify(
-          { trace: data.toolTrace, usage: data.usage } ?? [],
-          null,
-          2,
-        );
-        entry.appendChild(pre);
-        $("trace").appendChild(entry);
-        $("trace").scrollTop = $("trace").scrollHeight;
-      }
-      const escapeHtml = (s) =>
-        s.replace(
-          /[&<>"]/g,
-          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
-        );
-
-      // ---------- Kirim ----------
-      function setBusy(v) {
-        busy = v;
-        const lock = $("lockToggle").checked && v;
-        $("sendBtn").disabled = lock;
-        $("input").disabled = lock;
-        document.querySelectorAll("#quick button").forEach((b) => {
-          b.disabled = lock;
-        });
-      }
-
-      async function send(text) {
-        if (!text.trim()) return;
-        if (busy && $("lockToggle").checked) return; // cegah double-submit di UI
-        addMsg(text, "user");
-        $("input").value = "";
-        const typing = addMsg("Mengetik...", "bot typing");
-        setBusy(true);
-
-        try {
-          const res = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              msisdn: $("msisdn").value,
-              conversationId: "CONV-" + Date.now(), // bisa diganti dengan session ID atau nomor pelanggan
-              message: text,
-              history,
-            }),
-          });
-          const data = await res.json();
-          typing.remove();
-          const reply = data.reply ?? "Maaf, terjadi kesalahan.";
-          renderBot(reply);
-          history = data.history ?? [
-            ...history,
-            { role: "user", content: text },
-            { role: "assistant", content: reply },
-          ];
-          setBusy(false);
-          setQuickReplies(reply, data.handoffRecommended);
-          addTrace(data, text);
-        } catch (e) {
-          typing.remove();
-          addMsg("Koneksi ke server gagal. Silakan coba lagi.", "bot warn");
-          setBusy(false);
-          setQuickReplies("", true);
-        }
-      }
-
-      // ---------- Events ----------
-      $("form").addEventListener("submit", (e) => {
-        e.preventDefault();
-        send($("input").value);
+    // ---------- Kirim ----------
+    function setBusy(v) {
+      busy = v;
+      const lock = $("lockToggle").checked && v;
+      $("sendBtn").disabled = lock;
+      $("input").disabled = lock;
+      document.querySelectorAll("#quick button").forEach((b) => {
+        b.disabled = lock;
       });
-      $("quick").addEventListener("click", (e) => {
-        if (e.target.tagName !== "BUTTON") return;
-        if (e.target.dataset.text === "__HANDOFF__") {
-          addMsg(
-            "Anda akan dihubungkan dengan agen kami. Mohon tunggu.",
-            "bot",
-          );
-          return;
-        }
-        send(e.target.dataset.text);
-      });
+    }
 
-      function reset() {
-        history = [];
-        $("messages").innerHTML = "";
+    async function send(text) {
+      if (!text.trim()) return;
+      if (busy && $("lockToggle").checked) return; // cegah double-submit di UI
+      addMsg(text, "user");
+      $("input").value = "";
+      const typing = addMsg("Mengetik...", "bot typing");
+      setBusy(true);
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            msisdn: $("msisdn").value,
+            conversationId: "CONV-" + Date.now(), // bisa diganti dengan session ID atau nomor pelanggan
+            message: text,
+            history,
+          }),
+        });
+        const data = await res.json();
+        typing.remove();
+        const reply = data.reply ?? "Maaf, terjadi kesalahan.";
+        renderBot(reply);
+        history = data.history ?? [
+          ...history,
+          { role: "user", content: text },
+          { role: "assistant", content: reply },
+        ];
+        setBusy(false);
+        setQuickReplies(reply, data.handoffRecommended);
+        addTrace(data, text);
+      } catch (e) {
+        typing.remove();
+        addMsg("Koneksi ke server gagal. Silakan coba lagi.", "bot warn");
+        setBusy(false);
+        setQuickReplies("", true);
+      }
+    }
+
+    // ---------- Events ----------
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      send($("input").value);
+    });
+    $("quick").addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      if (e.target.dataset.text === "__HANDOFF__") {
         addMsg(
-          "Halo! Saya Asisten Kuota. Saya bisa cek kuota & jaringan, menawarkan paket, dan membuat laporan gangguan. Ada yang bisa saya bantu?",
+          "Anda akan dihubungkan dengan agen kami. Mohon tunggu.",
           "bot",
         );
-        setQuickReplies();
+        return;
       }
-      $("msisdn").addEventListener("change", reset); // ganti pelanggan = percakapan baru
-      reset();
-    </script>
-  </body>
+      send(e.target.dataset.text);
+    });
+
+    function reset() {
+      history = [];
+      $("messages").innerHTML = "";
+      addMsg(
+        "Halo! Saya Asisten Kuota. Saya bisa cek kuota & jaringan, menawarkan paket, dan membuat laporan gangguan. Ada yang bisa saya bantu?",
+        "bot",
+      );
+      setQuickReplies();
+    }
+    $("msisdn").addEventListener("change", reset); // ganti pelanggan = percakapan baru
+    reset();
+  </script>
+</body>
+
 </html>
