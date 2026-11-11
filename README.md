@@ -5,6 +5,14 @@ kuota dan jaringan, melihat tiket gangguan, serta memilih paket. Proyek ini
 menggunakan Node.js, Express, SQLite, dan model AI melalui API yang kompatibel
 dengan OpenAI.
 
+## Demo Video
+
+`https://365tsel-my.sharepoint.com/:f:/g/personal/mursal_habib_telkomsel_co_id/IgA9YqwZ_jPZRKFpv4L9C0a6AUk2sB4YojprE7_UF2yv8bI?e=sWkRL9`
+
+## Trello RACI Matrix
+
+`https://trello.com/invite/b/6af16ea538cf86846bb7130d/ATTI382812b6569ae115b20b09a1c47626a77B4BC6B1/📋-asisten-kuota-raci-matrix`
+
 ## Persyaratan
 
 - Node.js 18 atau lebih baru dan npm
@@ -99,10 +107,10 @@ diserahkan ke agent, respons chat dapat menyertakan `ratingPrompt`. Kirim rating
 
 ```json
 {
-  "conversationId": "demo-001",
-  "promptId": "uuid-dari-ratingPrompt",
-  "reason": "purchase",
-  "rating": 5
+	"conversationId": "demo-001",
+	"promptId": "uuid-dari-ratingPrompt",
+	"reason": "purchase",
+	"rating": 5
 }
 ```
 
@@ -110,16 +118,16 @@ Nilai `reason` dapat berupa `purchase`, `ticket`, atau `handoff`.
 
 Route API yang tersedia sesuai requirements:
 
-| Method | Endpoint                             | Kegunaan                          |
-| ------ | ------------------------------------ | --------------------------------- |
-| `GET`  | `/api/v1/subscriber/:msisdn/profile` | Melihat profil pelanggan          |
-| `GET`  | `/api/v1/subscriber/:msisdn/quota`   | Melihat kuota pelanggan           |
-| `GET`  | `/api/v1/network/status?cell=<lokasi>` | Melihat status jaringan berdasarkan cell/lokasi |
+| Method | Endpoint                                | Kegunaan                                            |
+| ------ | --------------------------------------- | --------------------------------------------------- |
+| `GET`  | `/api/v1/subscriber/:msisdn/profile`    | Melihat profil pelanggan                            |
+| `GET`  | `/api/v1/subscriber/:msisdn/quota`      | Melihat kuota pelanggan                             |
+| `GET`  | `/api/v1/network/status?cell=<lokasi>`  | Melihat status jaringan berdasarkan cell/lokasi     |
 | `GET`  | `/api/v1/network/status?msisdn=<nomor>` | Melihat status jaringan berdasarkan nomor pelanggan |
-| `POST` | `/api/v1/ticket`                     | Membuat tiket gangguan            |
-| `GET`  | `/api/v1/offers`                     | Melihat penawaran paket           |
-| `POST` | `/api/v1/loan/eligibility`           | Memeriksa kelayakan Paket Darurat |
-| `POST` | `/api/v1/purchase`                   | Memproses pembelian paket         |
+| `POST` | `/api/v1/ticket`                        | Membuat tiket gangguan                              |
+| `GET`  | `/api/v1/offers`                        | Melihat penawaran paket                             |
+| `POST` | `/api/v1/loan/eligibility`              | Memeriksa kelayakan Paket Darurat                   |
+| `POST` | `/api/v1/purchase`                      | Memproses pembelian paket                           |
 
 Route API lain yang tersedia untuk mendukung pembuatan project ini:
 | Method | Endpoint | Kegunaan |
@@ -154,6 +162,7 @@ Alur request dimulai di `src/app.js`. Endpoint chat didefinisikan di
 `src/ai/agentService.js`. Route API lainnya didefinisikan di `src/routes/`,
 logika endpoint ada di `src/controllers/`, dan integrasi layanan ada di
 `src/services/`.
+
 Terdapat juga file `controllers/diagnoseController.js` untuk membantu diagnosis dari profile/ quota/ FUP/ network, yang dibuat menggunakan bantuan AI.
 
 Model AI menentukan balasan dan tool yang relevan; data faktual seperti profil,
