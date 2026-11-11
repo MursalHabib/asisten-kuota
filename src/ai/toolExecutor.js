@@ -206,6 +206,7 @@ const handlers = {
               ticketNo: result.ticket.ticketNo,
               status: result.ticket.status,
               slaDueAt: result.ticket.slaDueAt,
+              isNew: result.ticket.isNew,
             }
           : null,
       }),

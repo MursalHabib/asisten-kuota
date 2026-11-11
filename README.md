@@ -93,6 +93,21 @@ Contoh body:
 }
 ```
 
+Setelah pembelian paket berhasil, tiket gangguan baru dibuat, atau percakapan
+diserahkan ke agent, respons chat dapat menyertakan `ratingPrompt`. Kirim rating
+1–5 ke `POST /api/agent/rating` menggunakan `conversationId` yang sama:
+
+```json
+{
+  "conversationId": "demo-001",
+  "promptId": "uuid-dari-ratingPrompt",
+  "reason": "purchase",
+  "rating": 5
+}
+```
+
+Nilai `reason` dapat berupa `purchase`, `ticket`, atau `handoff`.
+
 Route API yang tersedia sesuai requirements:
 
 | Method | Endpoint                             | Kegunaan                          |

@@ -25,6 +25,10 @@ const TICKET_INTENT =
 	/\b(tiket|ticket|nomor laporan|no\.? laporan|status (laporan|gangguan))\b/i;
 
 const log = (...a) => DEBUG && console.log('[agent]', ...a);
+const createRatingPrompt = (reason) => ({
+	id: crypto.randomUUID(),
+	reason,
+});
 
 // ---------- Helpers ----------
 function parseArgs(raw) {
@@ -139,7 +143,10 @@ module.exports = {
 			return done(
 				'Baik, saya hubungkan Anda dengan agen kami.',
 				{ step: 'handoff', reason: 'HUMAN_REQUEST' },
-				{ handoffRecommended: true },
+				{
+					handoffRecommended: true,
+					ratingPrompt: createRatingPrompt('handoff'),
+				},
 			);
 		}
 
@@ -152,7 +159,10 @@ module.exports = {
 				return done(
 					`${SORRY} Saya hubungkan Anda dengan agen kami agar segera dibantu.`,
 					{ step: 'handoff', reason: 'ANGRY_REPEATED' },
-					{ handoffRecommended: true },
+					{
+						handoffRecommended: true,
+						ratingPrompt: createRatingPrompt('handoff'),
+					},
 				);
 			}
 
@@ -229,6 +239,7 @@ module.exports = {
 						? 'Anda baru saja membeli paket ini.'
 						: 'Terima kasih, permintaan akan diproses.',
 					trace,
+					{ ratingPrompt: createRatingPrompt('purchase') },
 				);
 			}
 			if (r.errorCode === 'INSUFFICIENT_BALANCE') {
@@ -247,7 +258,10 @@ module.exports = {
 			return done(
 				'Maaf, pembelian belum berhasil. Saya hubungkan Anda dengan agen kami.',
 				trace,
-				{ handoffRecommended: true },
+				{
+					handoffRecommended: true,
+					ratingPrompt: createRatingPrompt('handoff'),
+				},
 			);
 		}
 
@@ -290,7 +304,12 @@ module.exports = {
 					found: r.found,
 					source: r.source,
 				},
-				{ handoffRecommended: !r.success },
+				{
+					handoffRecommended: !r.success,
+					...(!r.success
+						? { ratingPrompt: createRatingPrompt('handoff') }
+						: {}),
+				},
 			);
 		}
 		// ================= END ROUTER =================
@@ -304,6 +323,7 @@ module.exports = {
 		const toolCache = new Map(); // cegah call berulang dengan args sama
 		const toolTrace = [];
 		const usageTrace = [];
+		let ratingReason = null;
 		const conversationId = maskMsisdn(sessionMsisdn);
 		const usageOut = () => ({
 			usage: {
@@ -337,6 +357,9 @@ module.exports = {
 					reply: 'Maaf, layanan asisten sedang tidak tersedia. Silakan coba lagi.',
 					steps: step + 1,
 					error: 'LLM_ERROR',
+					...(ratingReason
+						? { ratingPrompt: createRatingPrompt(ratingReason) }
+						: {}),
 					...usageOut(),
 				};
 			}
@@ -369,6 +392,9 @@ module.exports = {
 						'Maaf, saya belum dapat memberikan jawaban.',
 					steps: step + 1,
 					toolTrace,
+					...(ratingReason
+						? { ratingPrompt: createRatingPrompt(ratingReason) }
+						: {}),
 					...usageOut(),
 				};
 			}
@@ -416,6 +442,13 @@ module.exports = {
 					toolResult = await executeTool(name, args);
 
 					toolCache.set(cacheKey, toolResult);
+					if (
+						name === 'start_diagnose' &&
+						toolResult.success &&
+						toolResult.data?.ticket?.isNew
+					) {
+						ratingReason = 'ticket';
+					}
 					toolTrace.push({
 						tool: name,
 						success: toolResult.success,
@@ -440,6 +473,7 @@ module.exports = {
 			reply: 'Maaf, proses pengecekan terlalu panjang. Silakan coba kembali atau hubungi agent.',
 			steps: MAX_AGENT_STEPS,
 			handoffRecommended: true,
+			ratingPrompt: createRatingPrompt('handoff'),
 			toolTrace,
 			...usageOut(),
 		};

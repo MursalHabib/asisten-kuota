@@ -135,6 +135,42 @@
       pointer-events: none;
     }
 
+    .rating {
+      align-self: flex-start;
+      width: 85%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .rating-options {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .rating-options button {
+      flex: 1;
+      border: 1px solid #d9541e;
+      border-radius: 8px;
+      padding: 8px 4px;
+      background: #fff;
+      color: #d9541e;
+      cursor: pointer;
+    }
+
+    .rating-options button:hover {
+      background: #fff4e0;
+    }
+
+    .rating-status {
+      margin-top: 8px;
+      color: #555;
+      font-size: 13px;
+    }
+
     .quick {
       display: flex;
       gap: 6px;
@@ -292,6 +328,7 @@
 
   <script>
     const API_URL = "/api/agent/chat"; // sesuaikan dengan route Express
+    const RATING_URL = "/api/agent/rating";
     const $ = (id) => document.getElementById(id);
     const DEFAULT_QUICK = [
       ["Internet saya lambat", "Internet lambat"],
@@ -300,12 +337,31 @@
     ];
     let history = [];
     let busy = false;
+    let conversationId = createConversationId();
+
+    function createConversationId() {
+      return `CONV-${crypto.randomUUID()}`;
+    }
 
     // ---------- Render pesan ----------
-    function addMsg(text, cls) {
+    function addMsg(text, cls, formatBold = false) {
       const el = document.createElement("div");
       el.className = `msg ${cls}`;
-      el.textContent = text;
+      if (formatBold) {
+        const parts = text.split(/(\*\*[^*]+\*\*)/g);
+        parts.forEach((part) => {
+          const match = part.match(/^\*\*([^*]+)\*\*$/);
+          if (match) {
+            const strong = document.createElement("strong");
+            strong.textContent = match[1];
+            el.appendChild(strong);
+          } else {
+            el.appendChild(document.createTextNode(part));
+          }
+        });
+      } else {
+        el.textContent = text;
+      }
       $("messages").appendChild(el);
       scrollDown();
       return el;
@@ -345,7 +401,7 @@
       )
         cls += " warn";
 
-      if (!offers.length) return addMsg(reply, cls);
+      if (!offers.length) return addMsg(reply, cls, true);
 
       // Teks sebelum daftar paket
       const idx = rest.findIndex((l) => /Pulsa Anda|Balas angka/.test(l));
@@ -354,7 +410,7 @@
         .join("\n")
         .trim();
       const after = idx < 0 ? "" : rest.slice(idx).join("\n").trim();
-      if (before) addMsg(before, cls);
+      if (before) addMsg(before, cls, true);
 
       const wrap = document.createElement("div");
       wrap.className = "cards";
@@ -369,7 +425,61 @@
         wrap.appendChild(c);
       });
       $("messages").appendChild(wrap);
-      if (after) addMsg(after, "bot");
+      if (after) addMsg(after, "bot", true);
+      scrollDown();
+    }
+
+    function renderRatingPrompt(prompt) {
+      if (!prompt?.id) return;
+      const card = document.createElement("div");
+      card.className = "rating";
+      const question = document.createElement("strong");
+      question.textContent = "Bagaimana pengalaman percakapan Anda dengan agent?";
+      const options = document.createElement("div");
+      options.className = "rating-options";
+      const status = document.createElement("div");
+      status.className = "rating-status";
+      status.setAttribute("aria-live", "polite");
+
+      for (let rating = 1; rating <= 5; rating += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `${rating} ★`;
+        button.setAttribute("aria-label", `Beri rating ${rating} dari 5`);
+        button.addEventListener("click", async () => {
+          options.querySelectorAll("button").forEach((item) => {
+            item.disabled = true;
+          });
+          status.textContent = "Menyimpan penilaian...";
+          try {
+            const response = await fetch(RATING_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversationId,
+                promptId: prompt.id,
+                reason: prompt.reason,
+                rating,
+              }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+              throw new Error(
+                result.error?.message ?? "Penilaian belum berhasil disimpan.",
+              );
+            status.textContent = "Terima kasih atas penilaian Anda.";
+          } catch (error) {
+            status.textContent = `${error.message} Silakan coba lagi.`;
+            options.querySelectorAll("button").forEach((item) => {
+              item.disabled = false;
+            });
+          }
+        });
+        options.appendChild(button);
+      }
+
+      card.append(question, options, status);
+      $("messages").appendChild(card);
       scrollDown();
     }
 
@@ -465,7 +575,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             msisdn: $("msisdn").value,
-            conversationId: "CONV-" + Date.now(), // bisa diganti dengan session ID atau nomor pelanggan
+            conversationId,
             message: text,
             history,
           }),
@@ -474,6 +584,7 @@
         typing.remove();
         const reply = data.reply ?? "Maaf, terjadi kesalahan.";
         renderBot(reply);
+        renderRatingPrompt(data.ratingPrompt);
         history = data.history ?? [
           ...history,
           { role: "user", content: text },
@@ -509,6 +620,7 @@
 
     function reset() {
       history = [];
+      conversationId = createConversationId();
       $("messages").innerHTML = "";
       addMsg(
         "Halo! Saya Asisten Kuota. Saya bisa cek kuota & jaringan, menawarkan paket, dan membuat laporan gangguan. Ada yang bisa saya bantu?",
